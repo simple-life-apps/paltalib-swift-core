@@ -4,7 +4,7 @@ on:
     inputs:
     
 jobs:
-  build:
+  push:
     runs-on: [ macOS-latest ]
     steps:
     - uses: actions/checkout@v1
