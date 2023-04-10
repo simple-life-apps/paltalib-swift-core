@@ -140,6 +140,6 @@ final class SQLiteClientTests: XCTestCase {
     }
     
     private func reinitClient() throws {
-        client = try SQLiteClient(folderURL: testURL)
+        client = try SQLiteClient(databaseURL: testURL.appendingPathComponent("db.sqlite"))
     }
 }

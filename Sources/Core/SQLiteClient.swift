@@ -41,8 +41,8 @@ public class SQLiteClient {
     
     private let db: OpaquePointer
     
-    public init(folderURL: URL) throws {
-        self.db = try Self.openDatabase(at: folderURL.appendingPathComponent("dbv3.sqlite"))
+    public init(databaseURL: URL) throws {
+        self.db = try Self.openDatabase(at: databaseURL)
     }
     
     public func executeStatement(_ statementString: String) throws {
