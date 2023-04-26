@@ -36,14 +36,14 @@ final class SQLiteClientTests: XCTestCase {
         let expectation = expectation(description: "Statetment executed")
         
         try client.executeStatement("SELECT * FROM atable") { executor in
-            XCTAssertNil(executor.getRow())
+            XCTAssertNil(executor.getDataRow())
             expectation.fulfill()
         }
         
         wait(for: [expectation], timeout: 0.1)
     }
     
-    func testInsertSelect() throws {
+    func testInsertSelectData() throws {
         let dataA = UUID().data
         let dataB = UUID().data
         let row = RowData(column1: dataA, column2: dataB)
@@ -62,6 +62,31 @@ final class SQLiteClientTests: XCTestCase {
         try client.executeStatement("SELECT rowA, rowB FROM atable") { executor in
             executor.runQuery()
             XCTAssertEqual(executor.getRow(), row)
+            expectation.fulfill()
+        }
+        
+        wait(for: [expectation], timeout: 0.1)
+    }
+    
+    func testInsertSelectInteger() throws {
+        let dataA = UUID().data
+        let dataB = Int.random(in: Int.min...Int.max)
+        let row = RowDataInteger(column1: dataA, column2: dataB)
+        
+        try client.executeStatement("CREATE TABLE atable (rowA BLOB PRIMARY KEY, rowB INTEGER);")
+        
+        try client.executeStatement("INSERT INTO atable (rowA, rowB) VALUES (?, ?)") { executor in
+            executor.setRow(row)
+            try executor.runStep()
+        }
+        
+        try reinitClient()
+        
+        let expectation = expectation(description: "Statetment executed")
+        
+        try client.executeStatement("SELECT rowA, rowB FROM atable") { executor in
+            executor.runQuery()
+            XCTAssertEqual(executor.getIntRow(), row)
             expectation.fulfill()
         }
         
@@ -90,7 +115,7 @@ final class SQLiteClientTests: XCTestCase {
         
         try client.executeStatement("SELECT rowA, rowB FROM atable") { executor in
             executor.runQuery()
-            XCTAssertNotNil(executor.getRow())
+            XCTAssertNotNil(executor.getDataRow())
             expectation.fulfill()
         }
         
@@ -115,7 +140,7 @@ final class SQLiteClientTests: XCTestCase {
         
         try client.executeStatement("SELECT rowA, rowB FROM atable") { executor in
             executor.runQuery()
-            XCTAssertNotNil(executor.getRow())
+            XCTAssertNotNil(executor.getDataRow())
             expectation1.fulfill()
         }
         
@@ -132,7 +157,7 @@ final class SQLiteClientTests: XCTestCase {
         
         try client.executeStatement("SELECT rowA, rowB FROM atable") { executor in
             executor.runQuery()
-            XCTAssertNil(executor.getRow())
+            XCTAssertNil(executor.getDataRow())
             expectation2.fulfill()
         }
         

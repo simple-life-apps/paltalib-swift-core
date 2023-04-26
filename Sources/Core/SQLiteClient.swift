@@ -91,43 +91,78 @@ public struct StatementExecutor {
         sqlite3_step(statement) == SQLITE_ROW
     }
     
-    public func setRow(_ row: RowData) {
-        sqlite3_bind_blob(statement, 1, row.column1.withUnsafeBytes { $0.baseAddress }, Int32(row.column1.count), SQLITE_TRANSIENT)
-        sqlite3_bind_blob(statement, 2, row.column2.withUnsafeBytes { $0.baseAddress }, Int32(row.column2.count), SQLITE_TRANSIENT)
+    public func setRow<First: Equatable & SQLiteBindable, Second: Equatable & SQLiteBindable>(_ row: RowDataGeneric<First, Second>) {
+        row.column1.bind(to: statement, for: 1)
+        row.column2.bind(to: statement, for: 2)
     }
     
     public func setValue(_ value: Data) {
         sqlite3_bind_blob(statement, 1, value.withUnsafeBytes { $0.baseAddress }, Int32(value.count), SQLITE_TRANSIENT)
     }
     
-    public func getRow() -> RowData? {
-        let pointer1 = sqlite3_column_blob(statement, 0)
-        let length1 = sqlite3_column_bytes(statement, 0)
-        
-        let pointer2 = sqlite3_column_blob(statement, 1)
-        let length2 = sqlite3_column_bytes(statement, 1)
-        
+    public func getRow<First: Equatable & SQLiteBindable, Second: Equatable & SQLiteBindable>() -> RowDataGeneric<First, Second>? {
         guard
-            let pointer1 = pointer1,
-            let pointer2 = pointer2
+            let column1 = First(from: statement, at: 0),
+            let column2 = Second(from: statement, at: 1)
         else {
             return nil
         }
         
-        let data1 = Data(bytes: pointer1, count: Int(length1))
-        let data2 = Data(bytes: pointer2, count: Int(length2))
-        
-        return RowData(column1: data1, column2: data2)
+        return RowDataGeneric(column1: column1, column2: column2)
     }
 }
 
-public struct RowData: Equatable {
-    public let column1: Data
-    public let column2: Data
+extension StatementExecutor {
+    public func getDataRow() -> RowData? {
+        getRow()
+    }
     
-    public init(column1: Data, column2: Data) {
+    public func getIntRow() -> RowDataInteger? {
+        getRow()
+    }
+}
+
+public typealias RowData = RowDataGeneric<Data, Data>
+public typealias RowDataInteger = RowDataGeneric<Data, Int>
+
+public struct RowDataGeneric<First: Equatable & SQLiteBindable, Second: Equatable & SQLiteBindable>: Equatable {
+    public let column1: First
+    public let column2: Second
+    
+    public init(column1: First, column2: Second) {
         self.column1 = column1
         self.column2 = column2
+    }
+}
+
+public protocol SQLiteBindable {
+    init?(from statement: OpaquePointer, at columnIndex: Int32)
+    func bind(to statement: OpaquePointer, for columnIndex: Int32)
+}
+
+extension Data: SQLiteBindable {
+    public init?(from statement: OpaquePointer, at columnIndex: Int32) {
+        guard let pointer = sqlite3_column_blob(statement, columnIndex) else {
+            return nil
+        }
+        
+        let length = sqlite3_column_bytes(statement, columnIndex)
+        
+        self.init(bytes: pointer, count: Int(length))
+    }
+    
+    public func bind(to statement: OpaquePointer, for columnIndex: Int32) {
+        sqlite3_bind_blob(statement, columnIndex, withUnsafeBytes { $0.baseAddress }, Int32(count), SQLITE_TRANSIENT)
+    }
+}
+
+extension Int: SQLiteBindable {
+    public init?(from statement: OpaquePointer, at columnIndex: Int32) {
+        self.init(sqlite3_column_int64(statement, columnIndex))
+    }
+    
+    public func bind(to statement: OpaquePointer, for columnIndex: Int32) {
+        sqlite3_bind_int64(statement, columnIndex, Int64(self))
     }
 }
 
