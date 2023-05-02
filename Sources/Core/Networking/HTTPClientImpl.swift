@@ -39,8 +39,16 @@ public enum NetworkError: Error {
 
 public protocol HTTPClient: AnyObject {
     var mandatoryHeaders: [String: String] { get set }
+
     func perform<SuccessResponse: Decodable, ErrorResponse: Decodable>(
         _ request: HTTPRequest,
+        with completion: @escaping (Result<SuccessResponse, NetworkErrorWithResponse<ErrorResponse>>) -> Void
+    )
+    
+    func perform<SuccessResponse: Decodable, ErrorResponse: Decodable>(
+        _ request: HTTPRequest,
+        requestMiddleware: @escaping (URLRequest) -> Void,
+        responseMiddleware: @escaping (HTTPURLResponse?, Data?) -> Void,
         with completion: @escaping (Result<SuccessResponse, NetworkErrorWithResponse<ErrorResponse>>) -> Void
     )
 }
@@ -60,12 +68,25 @@ public final class HTTPClientImpl: HTTPClient {
         _ request: HTTPRequest,
         with completion: @escaping (Result<SuccessResponse, NetworkErrorWithResponse<ErrorResponse>>) -> Void
     ) {
+        perform(request, requestMiddleware: { _ in }, responseMiddleware: { _, _ in }, with: completion)
+    }
+    
+    public func perform<SuccessResponse: Decodable, ErrorResponse: Decodable>(
+        _ request: HTTPRequest,
+        requestMiddleware: @escaping (URLRequest) -> Void,
+        responseMiddleware: @escaping (HTTPURLResponse?, Data?) -> Void,
+        with completion: @escaping (Result<SuccessResponse, NetworkErrorWithResponse<ErrorResponse>>) -> Void
+    ) {
         guard let urlRequest = request.urlRequest(headerFields: mandatoryHeaders) else {
             completion(.failure(.badRequest))
             return
         }
+        
+        requestMiddleware(urlRequest)
 
         let completion: (Data?, URLResponse?, Error?) -> Void = { data, response, error in
+            responseMiddleware(response as? HTTPURLResponse, data)
+            
             let code = (response as? HTTPURLResponse)?.statusCode
             if let statusCode = code, (statusCode < 200 || statusCode > 299) {
                 let errorResponse = data.flatMap { try? JSONDecoder().decode(ErrorResponse.self, from: $0) }
