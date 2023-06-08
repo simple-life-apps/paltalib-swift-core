@@ -27,7 +27,7 @@ public class SQLiteClient {
                 $0,
                 &pointer,
                 SQLITE_OPEN_FULLMUTEX | SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
-                UnsafePointer(nil as UnsafePointer<Int>?)
+                UnsafePointer(nil as UnsafePointer<CChar>?)
             )
         }
         
