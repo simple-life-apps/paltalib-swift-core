@@ -43,6 +43,9 @@ public class SQLiteClient {
     
     public init(databaseURL: URL) throws {
         self.db = try Self.openDatabase(at: databaseURL)
+
+        try executeStatement("PRAGMA journal_mode = WAL")
+        try executeStatement("PRAGMA synchronous = NORMAL")
     }
     
     public func executeStatement(_ statementString: String) throws {
@@ -80,9 +83,16 @@ public struct StatementExecutor {
     }
     
     public func runStep() throws {
-        let result = sqlite3_step(statement)
-        guard result == SQLITE_DONE else {
-            throw SQliteError.stepExecutionFailed
+        while true {
+            let stepResult = sqlite3_step(statement)
+            switch stepResult {
+            case SQLITE_DONE:
+                return
+            case SQLITE_ROW:
+                continue
+            default:
+                throw SQliteError.stepExecutionFailed
+            }
         }
     }
     
